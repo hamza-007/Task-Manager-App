@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"os"
 	"time"
+
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -50,13 +51,13 @@ func (uc *UserController) Register(c *gin.Context) {
 func (uc *UserController) Login(c *gin.Context)  {
 	
 	var payload models.UserLogin
-	err := c.Bind(&payload); 
+	err := c.ShouldBindJSON(&payload) 
 	if err != nil {
 		var res = handlers.NewHTTPResponse(http.StatusBadRequest, "errroooor")
 		c.JSON(http.StatusBadRequest, res)
 		return
 	}
-	user,err := uc.UserService.GetUser(payload.Email) 
+	user,err := uc.UserService.GetUserByEmail(payload.Email) 
 	if err!=nil {
 		var res = handlers.NewHTTPResponse(http.StatusNotFound,err)
 		c.JSON(http.StatusNotFound,res)
@@ -79,54 +80,57 @@ func (uc *UserController) Login(c *gin.Context)  {
 		c.JSON(http.StatusInternalServerError, res)
 		return
 	}
-	c.SetCookie("jwt",token, 10*1000, "/", "", false, true)
+	c.SetCookie("jwt",token, 1000*60*60*24, "/", "", false, true)
 	
 }
-/*
-func User(c *fiber.Ctx) error {
-	cookie := c.Cookies("jwt")
 
+func (uc *UserController) User(c *gin.Context) {
+	cookie ,err:= c.Cookie("jwt")
+	if err!=nil {
+		var res = handlers.NewHTTPResponse(http.StatusInternalServerError, err)
+		c.JSON(http.StatusInternalServerError, res)
+		return
+	}
 	token, err := jwt.ParseWithClaims(cookie, &jwt.StandardClaims{}, func(token *jwt.Token) (interface{}, error) {
-		return []byte(secret), nil
+		return []byte(os.Getenv("SECRET_KEY")), nil
 	})
 
 	if err != nil {
-		c.Status(fiber.StatusUnauthorized)
-		return c.Render("info", fiber.Map{
-			"Message": "not authentificated ",
-		})
+		var res = handlers.NewHTTPResponse(http.StatusInternalServerError, err)
+		c.JSON(http.StatusInternalServerError, res)
+		return
 	}
 
 	claims := token.Claims.(*jwt.StandardClaims)
 
-	var user models.User1
+	
+	user ,err := uc.UserService.GetUserById(claims.Issuer)
+	if err != nil {
+		var res = handlers.NewHTTPResponse(http.StatusInternalServerError, err)
+		c.JSON(http.StatusInternalServerError, res)
+		return
+	}
+	
 
-	database.DB.Where("id = ?", claims.Issuer).First(&user)
-
-	return c.Render("home",user)
+	var res = handlers.NewHTTPResponse(http.StatusCreated,user)
+	c.JSON(http.StatusCreated,res)
+	return
 }
 
-func Logout(c *fiber.Ctx) error {
-	cookie := fiber.Cookie{
-		Name:     "jwt",
-		Value:    "",
-		Expires:  time.Now().Add(-time.Hour),
-		HTTPOnly: true,
-	}
+func (uc *UserController) Logout(c *gin.Context)  {
+	c.SetCookie("jwt","", -1000, "/", "", false, true)
 
-	c.Cookie(&cookie)
-
-	return c.Render("info", fiber.Map{
-		"Message": "logout succes  ",
-	})
-}*/
+	var res = handlers.NewHTTPResponse(http.StatusOK,"logout succes")
+	c.JSON(http.StatusOK,res)
+	return
+}
 
 
 func (uc *UserController) RegisterUserRoutes(rg *gin.RouterGroup) {
-	taskrouter := rg.Group("/user")
-	taskrouter.POST("/create", uc.Register)
-	taskrouter.POST("/login", uc.Login)
-	// taskrouter.GET("/get/:id",tc.GetTaskById)
-	// taskrouter.PUT("/update/:id",tc.UpdateTask)
+	userrouter := rg.Group("/user")
+	userrouter.POST("/create", uc.Register)
+	userrouter.POST("/login", uc.Login)
+	userrouter.GET("/",uc.User)
+	userrouter.GET("/logout",uc.Logout)
 	// taskrouter.DELETE("/delete/:id",tc.DeleteTask)
 }

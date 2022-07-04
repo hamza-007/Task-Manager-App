@@ -3,14 +3,14 @@ package services
 import (
 	"database/sql"
 	"errors"
-
 	"github.com/hamza-007/Task-Manager-App/models"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type UserService interface {
 	AddUser(*models.User) (error)
-	GetUser(string) (*models.User,error)
+	GetUserById(string) (*models.User,error)
+	GetUserByEmail(email string) (*models.User,error)
 	UpdateUser(string) (models.User,error)
 }
 
@@ -49,10 +49,10 @@ func (us *UserSvc)AddUser(usr *models.User) error{
 	return err
 }
 
-func (us *UserSvc)GetUser(id string) (*models.User,error){		
+func (us *UserSvc)GetUserById(id string) (*models.User,error){		
 	var user models.User	
 	
-	row, err := us.BD.Query("SELECT * FROM users WHERE email = ?", &id)
+	row, err := us.BD.Query("SELECT * FROM users WHERE userid = ?", &id)
 	if err != nil {
 		return  nil,err
 	}
@@ -69,7 +69,26 @@ func (us *UserSvc)GetUser(id string) (*models.User,error){
 	return &user,nil
 
 }
+func (us *UserSvc)GetUserByEmail(email string) (*models.User,error){		
+	var user models.User	
+	
+	row, err := us.BD.Query("SELECT * FROM users WHERE email = ?", &email)
+	if err != nil {
+		return  nil,err
+	}
+	for row.Next() {
+		err := row.Scan(&user.Id,&user.Username,&user.Email,&user.Password)
+		if err != nil {
+			return nil,err
+		}
+	}
 
+	if user.Email == "" {
+		return nil,errors.New("user not found !!!")
+	}
+	return &user,nil
+
+}
 func (us *UserSvc)UpdateUser(id string) (models.User,error){
 	var user models.User
 	return user,nil 
