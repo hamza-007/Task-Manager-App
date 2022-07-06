@@ -42,7 +42,7 @@ func main() {
 	})
 
 	defer bd.Close()
-	defer log.Fatal(http.StatusAccepted)
+	
 	log.Fatalln(router.Run(os.Getenv("PORT")))
 	
 }
