@@ -42,6 +42,8 @@ func main() {
 	})
 
 	defer bd.Close()
-	
+	var x string
+
+	log.Fatal(x)
 	log.Fatalln(router.Run(os.Getenv("PORT")))
 }
