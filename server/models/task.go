@@ -7,6 +7,7 @@ type Task struct {
 	Description string `json:"description"  binding:"required"`
 	Completed   bool   `json:"completed"`
 	CreatedAt   string `json:"createdAt"`
-	UpdatedAt   string `json:"updatedAt"`
+	CompletedAt   string `json:"completedAt"`
+	Userid 		string `json:"user_id"`
 }
 

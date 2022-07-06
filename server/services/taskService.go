@@ -1,18 +1,21 @@
 package services
 
 import (
-	"github.com/hamza-007/Task-Manager-App/models"
 	"database/sql"
+	"os"
 	"time"
+
+	"github.com/dgrijalva/jwt-go"
+	"github.com/hamza-007/Task-Manager-App/models"
 )
 
 
 type TaskService interface {
-	Add(*models.Task) error
-	GetTasks()([]models.Task,error)
-	GetTask(string)(models.Task, error)
-	UpdateTask(*models.Task,string) (models.Task,error)
-	DeleteTask(string) (models.Task,error)
+	Add(*models.Task,string) error
+	GetTasks(string)([]models.Task,error)
+	GetTask(string,string)(models.Task, error)
+	UpdateTask(*models.Task,string,string) (models.Task,error)
+	DeleteTask(string,string) (models.Task,error)
 }
 
 type TaskSvc struct{
@@ -25,25 +28,46 @@ func NewTaskService(bd *sql.DB) TaskService {
 	}
 }
 
-func (ts *TaskSvc)Add(t *models.Task) error {
-	stmt, err := ts.BD.Prepare("INSERT INTO tasks(id,description,completed,created_at,updated_at) VALUES (?,?,?,?,?) ")
+func (ts *TaskSvc)Add(t *models.Task,id string) error {
+	stmt, err := ts.BD.Prepare("INSERT INTO tasks(id,description,completed,created_at,completed_at,userid) VALUES (?,?,?,?,?,?) ")
 	if err != nil {
 		return err 
 	}
-	_, err = stmt.Exec(&t.Guid, &t.Description, &t.Completed, &t.CreatedAt,&t.UpdatedAt)
+	token, err := jwt.ParseWithClaims(id, &jwt.StandardClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return []byte(os.Getenv("SECRET_KEY")), nil
+	})
+
+	if err != nil {
+		
+		return err
+	}
+
+	claims := token.Claims.(*jwt.StandardClaims)
+	_, err = stmt.Exec(&t.Guid, &t.Description, &t.Completed, &t.CreatedAt,&t.CompletedAt,&claims.Issuer)
 	return err
 }
 
-func (ts *TaskSvc)GetTasks() ([]models.Task, error) {
+func (ts *TaskSvc)GetTasks(id string) ([]models.Task, error) {
 	var tasks []models.Task
 	var task models.Task
-	rows, e := ts.BD.Query("SELECT * FROM tasks")
+	token, err := jwt.ParseWithClaims(id, &jwt.StandardClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return []byte(os.Getenv("SECRET_KEY")), nil
+	})
+
+	if err != nil {
+		
+		return nil,err
+	}
+
+	claims := token.Claims.(*jwt.StandardClaims)
+	rows, e := ts.BD.Query("SELECT * FROM tasks WHERE userid = ?",&claims.Issuer)
+	
 	if e != nil {
 		return nil, e
 	}
 	defer rows.Close()
 	for rows.Next() {
-		err := rows.Scan(&task.Guid, &task.Description, &task.Completed, &task.CreatedAt,&task.UpdatedAt)
+		err := rows.Scan(&task.Guid, &task.Description, &task.Completed, &task.CreatedAt,&task.CompletedAt,&task.Userid)
 		if err != nil {
 			return nil, err
 		}
@@ -52,14 +76,24 @@ func (ts *TaskSvc)GetTasks() ([]models.Task, error) {
 	return tasks, nil
 }
 
-func (ts *TaskSvc)GetTask(id string) (models.Task, error) {
+func (ts *TaskSvc)GetTask(id string,userid string) (models.Task, error) {
 	var task models.Task
-	row, err := ts.BD.Query("SELECT * FROM tasks WHERE id = ?", id)
+	token, err := jwt.ParseWithClaims(userid, &jwt.StandardClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return []byte(os.Getenv("SECRET_KEY")), nil
+	})
+
+	if err != nil {
+		
+		return task,err
+	}
+
+	claims := token.Claims.(*jwt.StandardClaims)
+	row, err := ts.BD.Query("SELECT * FROM tasks WHERE id = ? AND userid = ?", id,claims.Issuer)
 	if err != nil {
 		return task, err
 	}
 	for row.Next() {
-		err := row.Scan(&task.Guid, &task.Description, &task.Completed, &task.CreatedAt,&task.UpdatedAt)
+		err := row.Scan(&task.Guid, &task.Description, &task.Completed, &task.CreatedAt,&task.CompletedAt,&task.Userid)
 		if err != nil {
 			return task, err
 		}
@@ -67,29 +101,48 @@ func (ts *TaskSvc)GetTask(id string) (models.Task, error) {
 	return task, nil
 }
 
-func (ts *TaskSvc)UpdateTask(t *models.Task,id string) (models.Task,error) {
-	task , err := ts.GetTask(id)
+func (ts *TaskSvc)UpdateTask(t *models.Task,id string,userid string) (models.Task,error) {
+	var task models.Task
+	token, err := jwt.ParseWithClaims(userid, &jwt.StandardClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return []byte(os.Getenv("SECRET_KEY")), nil
+	})
+
+	if err != nil {
+		
+		return task,err
+	}
+
+	claims := token.Claims.(*jwt.StandardClaims)
+	task , err = ts.GetTask(id,userid)
 	if err != nil { return task,err }
-	stmt, err := ts.BD.Prepare("UPDATE tasks SET description = ? , completed = ? , updated_at = ? WHERE id = ? ")
+	stmt, err := ts.BD.Prepare("UPDATE tasks SET description = ? , completed = ? , completed_at = ? WHERE id = ? AND userid = ? ")
 	if err != nil {
 		return task,err
 	}
-	_, err = stmt.Exec( &t.Description, &t.Completed, time.Now().Format(time.ANSIC) ,&id)
+	_, err = stmt.Exec( &t.Description, &t.Completed, time.Now().Format(time.ANSIC) ,&id,&claims.Issuer)
 	return task,err 
 }
 
 
-func (ts *TaskSvc)DeleteTask(id string) (models.Task,error) {
-	task , err := ts.GetTask(id)
+func (ts *TaskSvc)DeleteTask(id string,userid string) (models.Task,error) {
+	task , err := ts.GetTask(id,userid)
 	if err != nil {
 		return task,err
 	}
+	token, err := jwt.ParseWithClaims(userid, &jwt.StandardClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return []byte(os.Getenv("SECRET_KEY")), nil
+	})
 
-	stmt, err := ts.BD.Prepare("DELETE FROM tasks WHERE id = ? ")
+	if err != nil {
+		
+		return task,err
+	}
+
+	claims := token.Claims.(*jwt.StandardClaims)
+	stmt, err := ts.BD.Prepare("DELETE FROM tasks WHERE id = ? AND userid = ?")
 
 	if err != nil { return task,err }
 
-	_, err = stmt.Exec(id)
-
+	_, err = stmt.Exec(id,claims.Issuer)
 	return task,err 
 }

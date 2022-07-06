@@ -3,7 +3,10 @@ package controllers
 import (
 	"database/sql"
 	"net/http"
+
 	"time"
+
+	
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/hamza-007/Task-Manager-App/handlers"
@@ -30,9 +33,16 @@ func (tc *TaskController) AddTask(c *gin.Context){
 	}
 	task.Guid = uuid.New().String()
 	task.CreatedAt = time.Now().Format(time.ANSIC)
-	task.UpdatedAt = time.Now().Format(time.ANSIC)
 
-	if err := tc.TaskService.Add(&task) ; err != nil{
+	cookie ,err:= c.Cookie("jwt")
+	if err!=nil {
+		var res = handlers.NewHTTPResponse(http.StatusInternalServerError, err)
+		c.JSON(http.StatusInternalServerError, res)
+		return
+	}
+	
+
+	if err := tc.TaskService.Add(&task,cookie) ; err != nil{
 		var res = handlers.NewHTTPResponse(http.StatusBadRequest, err)
 		c.JSON(http.StatusInternalServerError, res)
 		return
@@ -43,7 +53,13 @@ func (tc *TaskController) AddTask(c *gin.Context){
 
 
 func (tc *TaskController) GetAllTasks(c *gin.Context){
-	tasks,err := tc.TaskService.GetTasks()
+	cookie ,err:= c.Cookie("jwt")
+	if err!=nil {
+		var res = handlers.NewHTTPResponse(http.StatusInternalServerError, err)
+		c.JSON(http.StatusInternalServerError, res)
+		return
+	}
+	tasks,err := tc.TaskService.GetTasks(cookie)
 	if err != nil{
 		var res = handlers.NewHTTPResponse(http.StatusInternalServerError, err)
 		c.JSON(http.StatusInternalServerError, res)
@@ -60,8 +76,14 @@ func (tc *TaskController) GetAllTasks(c *gin.Context){
 
 
 func (tc *TaskController) GetTaskById(c *gin.Context){
+	cookie ,err:= c.Cookie("jwt")
+	if err!=nil {
+		var res = handlers.NewHTTPResponse(http.StatusInternalServerError, err)
+		c.JSON(http.StatusInternalServerError, res)
+		return
+	}
 	id := c.Param("id")
-	task ,err := tc.TaskService.GetTask(id)
+	task ,err := tc.TaskService.GetTask(id,cookie)
 	if err != nil  {
 		var res = handlers.NewHTTPResponse(http.StatusBadRequest, err)
 		c.JSON(http.StatusBadRequest, res)
@@ -79,6 +101,12 @@ func (tc *TaskController) GetTaskById(c *gin.Context){
 
 
 func (tc *TaskController) UpdateTask(c *gin.Context){
+	cookie ,err:= c.Cookie("jwt")
+	if err!=nil {
+		var res = handlers.NewHTTPResponse(http.StatusInternalServerError, err)
+		c.JSON(http.StatusInternalServerError, res)
+		return
+	}
 	id := c.Param("id")
 	var t models.Task
 	if err := c.ShouldBindJSON(&t) ; err != nil{
@@ -86,7 +114,7 @@ func (tc *TaskController) UpdateTask(c *gin.Context){
 		c.JSON(http.StatusBadRequest, res)
 		return
 	}
-	task , err := tc.TaskService.UpdateTask(&t,id)
+	task , err := tc.TaskService.UpdateTask(&t,id,cookie)
 	if err != nil  {
 		var res = handlers.NewHTTPResponse(http.StatusInternalServerError, err)
 		c.JSON(http.StatusInternalServerError, res)
@@ -104,8 +132,14 @@ func (tc *TaskController) UpdateTask(c *gin.Context){
 
 
 func (tc *TaskController) DeleteTask(c *gin.Context){
+	cookie ,err:= c.Cookie("jwt")
+	if err!=nil {
+		var res = handlers.NewHTTPResponse(http.StatusInternalServerError, err)
+		c.JSON(http.StatusInternalServerError, res)
+		return
+	}
 	id := c.Param("id")
-	task ,err := tc.TaskService.DeleteTask(id) 
+	task ,err := tc.TaskService.DeleteTask(id,cookie) 
 	if err != nil{
 		var res = handlers.NewHTTPResponse(http.StatusInternalServerError, err)
 		c.JSON(http.StatusInternalServerError, res)

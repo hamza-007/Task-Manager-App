@@ -3,7 +3,7 @@ CREATE TABLE tasks (
     description TEXT NOT NULL,
     completed boolean,
     created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL,
-    userid VARCHAR(255) UNIQUE,
+    completed_at TEXT NOT NULL,
+    userid VARCHAR(255) NOT NULL,
     FOREIGN KEY(userid) REFERENCES users(userid)
 );
