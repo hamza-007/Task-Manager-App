@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"os"
 	"time"
-
 	"github.com/dgrijalva/jwt-go"
 	"github.com/hamza-007/Task-Manager-App/models"
 )

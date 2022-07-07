@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"os"
 	"time"
-
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"

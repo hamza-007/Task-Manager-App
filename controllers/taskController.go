@@ -3,10 +3,7 @@ package controllers
 import (
 	"database/sql"
 	"net/http"
-
 	"time"
-
-	
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/hamza-007/Task-Manager-App/handlers"
@@ -41,7 +38,6 @@ func (tc *TaskController) AddTask(c *gin.Context){
 		return
 	}
 	
-
 	if err := tc.TaskService.Add(&task,cookie) ; err != nil{
 		var res = handlers.NewHTTPResponse(http.StatusBadRequest, err)
 		c.JSON(http.StatusInternalServerError, res)
