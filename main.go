@@ -2,14 +2,15 @@ package main
 
 import (
 	"database/sql"
-	"log"
-	"net/http"
-	"os"
 	"github.com/gin-gonic/gin"
 	"github.com/hamza-007/Task-Manager-App/controllers"
 	"github.com/hamza-007/Task-Manager-App/db"
+	"github.com/hamza-007/Task-Manager-App/handlers"
 	"github.com/hamza-007/Task-Manager-App/services"
 	"github.com/joho/godotenv"
+	"log"
+	"net/http"
+	"os"
 )
 
 var (
@@ -19,7 +20,6 @@ var (
 	us services.UserService
 	bd *sql.DB
 )
-
 
 func main() {
 	if err := godotenv.Load("./.env"); err != nil {
@@ -32,17 +32,18 @@ func main() {
 	us = services.NewUserService(bd)
 	uc = controllers.NewUserController(us)
 
-
 	mainpath := os.Getenv("MAIN__PATH")
 	tc.RegisterTaskRoutes(router.Group(mainpath))
 	uc.RegisterUserRoutes(router.Group(mainpath))
-	
-	router.Use(func(c *gin.Context){
-		c.String(http.StatusBadRequest," Invalid Request !! !")
+
+	router.Use(func(c *gin.Context) {
+		var res = handlers.NewHTTPResponse(http.StatusNotFound, "invalid Request !!")
+		c.JSON(http.StatusNotFound, res)
+		return
 	})
 
 	defer bd.Close()
-	
+
 	log.Fatalln(router.Run(os.Getenv("PORT")))
-	
+
 }

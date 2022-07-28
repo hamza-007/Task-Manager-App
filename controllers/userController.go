@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"os"
 	"time"
+
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -13,7 +14,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-type UserController struct{
+type UserController struct {
 	UserService services.UserService
 }
 
@@ -33,36 +34,41 @@ func (uc *UserController) Register(c *gin.Context) {
 	}
 	user.Id = uuid.New().String()
 
-
+	err = uc.UserService.VerifUser(&user.Email)
+	if err != nil {
+		var res = handlers.NewHTTPResponse(http.StatusBadRequest, err)
+		c.JSON(http.StatusBadRequest, res)
+		return
+	}
 	err = uc.UserService.AddUser(&user)
 
 	if err != nil {
-		var res = handlers.NewHTTPResponse(http.StatusInternalServerError, err)
-		c.JSON(http.StatusInternalServerError, res)
+		var res = handlers.NewHTTPResponse(http.StatusBadRequest, err)
+		c.JSON(http.StatusBadRequest, res)
 		return
 	}
 
-	var res = handlers.NewHTTPResponse(http.StatusCreated,"user saved succesfully !!")
-	c.JSON(http.StatusCreated,res)
+	var res = handlers.NewHTTPResponse(http.StatusCreated, "user saved succesfully !!")
+	c.JSON(http.StatusCreated, res)
 	return
 }
 
-func (uc *UserController) Login(c *gin.Context)  {
-	
+func (uc *UserController) Login(c *gin.Context) {
+
 	var payload models.UserLogin
-	err := c.ShouldBindJSON(&payload) 
+	err := c.Bind(&payload)
 	if err != nil {
 		var res = handlers.NewHTTPResponse(http.StatusBadRequest, "errroooor")
 		c.JSON(http.StatusBadRequest, res)
 		return
 	}
-	user,err := uc.UserService.GetUserByEmail(payload.Email) 
-	if err!=nil {
-		var res = handlers.NewHTTPResponse(http.StatusNotFound,err)
-		c.JSON(http.StatusNotFound,res)
-		return 
+	user, err := uc.UserService.GetUserByEmail(payload.Email)
+	if err != nil {
+		var res = handlers.NewHTTPResponse(http.StatusNotFound, err)
+		c.JSON(http.StatusNotFound, res)
+		return
 	}
-	
+
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(payload.Password)); err != nil {
 		var res = handlers.NewHTTPResponse(http.StatusInternalServerError, err)
 		c.JSON(http.StatusInternalServerError, res)
@@ -79,13 +85,16 @@ func (uc *UserController) Login(c *gin.Context)  {
 		c.JSON(http.StatusInternalServerError, res)
 		return
 	}
-	c.SetCookie("jwt",token, 1000*60*60*24, "/", "", false, true)
-	
+	c.SetCookie("jwt", token, 1000*60*60*24, "/", "", false, false)
+
+	var res = handlers.NewHTTPResponse(http.StatusAccepted, "logged in succesfully ! ")
+	c.JSON(http.StatusAccepted, res)
+	return
 }
 
 func (uc *UserController) User(c *gin.Context) {
-	cookie ,err:= c.Cookie("jwt")
-	if err!=nil {
+	cookie, err := c.Cookie("jwt")
+	if err != nil {
 		var res = handlers.NewHTTPResponse(http.StatusInternalServerError, err)
 		c.JSON(http.StatusInternalServerError, res)
 		return
@@ -102,34 +111,31 @@ func (uc *UserController) User(c *gin.Context) {
 
 	claims := token.Claims.(*jwt.StandardClaims)
 
-	
-	user ,err := uc.UserService.GetUserById(claims.Issuer)
+	user, err := uc.UserService.GetUserById(claims.Issuer)
 	if err != nil {
 		var res = handlers.NewHTTPResponse(http.StatusInternalServerError, err)
 		c.JSON(http.StatusInternalServerError, res)
 		return
 	}
-	
 
-	var res = handlers.NewHTTPResponse(http.StatusCreated,user)
-	c.JSON(http.StatusCreated,res)
+	var res = handlers.NewHTTPResponse(http.StatusCreated, user)
+	c.JSON(http.StatusCreated, res)
 	return
 }
 
-func (uc *UserController) Logout(c *gin.Context)  {
-	c.SetCookie("jwt","", -1000, "/", "", false, true)
+func (uc *UserController) Logout(c *gin.Context) {
+	c.SetCookie("jwt", "", -1000, "/", "", false, false)
 
-	var res = handlers.NewHTTPResponse(http.StatusOK,"logout succes")
-	c.JSON(http.StatusOK,res)
+	var res = handlers.NewHTTPResponse(http.StatusOK, "logout succes")
+	c.JSON(http.StatusOK, res)
 	return
 }
-
 
 func (uc *UserController) RegisterUserRoutes(rg *gin.RouterGroup) {
 	userrouter := rg.Group("/user")
 	userrouter.POST("/create", uc.Register)
 	userrouter.POST("/login", uc.Login)
-	userrouter.GET("/",uc.User)
-	userrouter.GET("/logout",uc.Logout)
+	userrouter.GET("/", uc.User)
+	userrouter.GET("/logout", uc.Logout)
 	// taskrouter.DELETE("/delete/:id",tc.DeleteTask)
 }
